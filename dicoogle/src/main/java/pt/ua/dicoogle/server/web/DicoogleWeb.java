@@ -292,8 +292,12 @@ public class DicoogleWeb {
         HttpServlet servletModule = new WebUIModuleServlet();
         // CORS support
         this.addCORSFilter(handler);
+
         // require being logged in
-        this.addAuthFilter(handler, false, null);
+        if (this.authorizationEnabled) {
+            this.addAuthFilter(handler, false, null);
+        }
+
         // Caching!
         FilterHolder cacheHolder = new FilterHolder(new AbstractCacheFilter() {
             @Override
