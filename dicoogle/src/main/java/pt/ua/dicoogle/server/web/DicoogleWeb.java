@@ -88,6 +88,7 @@ import pt.ua.dicoogle.server.web.servlets.webui.WebUIServlet;
 import pt.ua.dicoogle.server.web.utils.LocalImageCache;
 import pt.ua.dicoogle.server.PluginRestletApplication;
 import pt.ua.dicoogle.server.web.utils.SimpleImageRetriever;
+import pt.ua.dicoogle.server.web.servlets.DicoogleNextWebAppServlet;
 
 /**
  * @author António Novo <antonio.novo@ua.pt>
@@ -216,6 +217,7 @@ public class DicoogleWeb {
                 createServletHandler(new PluginsServlet(), "/plugins/*"),
                 createServletHandler(new PresetsServlet(), "/presets/*"),
                 createServletHandler(new WebUIServlet(), "/webui"), createWebUIModuleServletHandler(),
+                createServletHandler(new DicoogleNextWebAppServlet(), "/experimental/*"),
                 createServletHandler(new LoggerServlet(), "/logger"),
                 createServletHandler(new RunningTasksServlet(), "/index/task"),
                 createServletHandler(new ExportServlet(ExportType.EXPORT_CVS), "/export/cvs"),

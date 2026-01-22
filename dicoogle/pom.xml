@@ -85,11 +85,20 @@
                     <include>webapp/css/**</include>
                     <include>webapp/dist/**</include>
                     <include>webapp/index.html</include>
+                    <!-- dicoogle-next -->
+                    <include>dicoogle-next/dist/**</include>
                 </includes>
                 <excludes>
                     <exclude>META-INF/*.SF</exclude>
                     <exclude>META-INF/*.DSA</exclude>
                     <exclude>META-INF/*.RSA</exclude>
+                <!-- Exclude dicoogle-next source files (only include dist) -->
+                    <exclude>dicoogle-next/src/**</exclude>
+                    <exclude>dicoogle-next/node_modules/**</exclude>
+                    <exclude>dicoogle-next/vite-plugins/**</exclude>
+                    <exclude>dicoogle-next/docs/**</exclude>
+                    <exclude>dicoogle-next/*.json</exclude>
+                    <exclude>dicoogle-next/*.ts</exclude>
                 </excludes>
             </resource>
 
@@ -310,6 +319,55 @@
                     <!-- Defining webapp directory -->
                     <workingDirectory>src/main/resources/webapp</workingDirectory>
                 </configuration>
+            </plugin>
+
+            <!-- Experimental Webapp (dicoogle-next) -->
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>1.15.0</version>
+                <executions>
+                    <!-- Install Node and NPM -->
+                    <execution>
+                        <id>install node and npm experimental</id>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <nodeVersion>v20.11.0</nodeVersion>
+                            <npmVersion>10.2.4</npmVersion>
+                            <installDirectory>target</installDirectory>
+                            <workingDirectory>src/main/resources/dicoogle-next</workingDirectory>
+                        </configuration>
+                    </execution>
+                    
+                    <!-- Install dependencies -->
+                    <execution>
+                        <id>npm install experimental</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <workingDirectory>src/main/resources/dicoogle-next</workingDirectory>
+                            <arguments>install --no-audit</arguments>
+                        </configuration>
+                    </execution>
+                    
+                    <!-- Build webapp -->
+                    <execution>
+                        <id>npm run build experimental</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <workingDirectory>src/main/resources/dicoogle-next</workingDirectory>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
