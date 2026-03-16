@@ -84,7 +84,15 @@ public class LoginServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 
-        User user = Authentication.getInstance().getAuthenticatedUser(req);
+        // Find authenticated user
+        User user = null;
+        // Fetch token from request,
+        // as this servlet is not filtered by AuthenticatedFilter
+        String token = AuthenticatedFilter.getTokenFromRequest(req);
+        if (token != null) {
+            user = Authentication.getInstance().getUsername(token);
+        }
+
         if (user == null) {
             resp.sendError(401);
             return;
