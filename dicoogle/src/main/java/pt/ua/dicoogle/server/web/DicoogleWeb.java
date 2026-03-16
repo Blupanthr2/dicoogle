@@ -22,6 +22,7 @@ import pt.ua.dicoogle.core.settings.ServerSettingsManager;
 import pt.ua.dicoogle.plugins.PluginController;
 import pt.ua.dicoogle.plugins.webui.WebUIPlugin;
 import pt.ua.dicoogle.sdk.utils.TagsStruct;
+import pt.ua.dicoogle.server.web.auth.AuthenticatedFilter;
 import pt.ua.dicoogle.server.web.rest.VersionResource;
 import pt.ua.dicoogle.server.web.servlets.*;
 import pt.ua.dicoogle.server.web.servlets.plugins.PluginsServlet;
@@ -109,8 +110,11 @@ public class DicoogleWeb {
     public static final String CONTEXTPATH = "/";
     private LocalImageCache cache = null;
     private Server server = null;
-    /** Whether access to services is protected with authorization:
-     * There has to be a valid Dicoogle session token in the `Authorization` header.
+    /**
+     * Whether access to services is protected with authorization:
+     * There has to be a valid Dicoogle session token in the request.
+     * @see {@link pt.ua.dicoogle.server.web.auth.Authentication}
+     * @see {@link pa.ua.dicoogle.server.web.auth.AuthenticatedFilter}
      */
     private boolean authorizationEnabled = true;
 
@@ -122,6 +126,7 @@ public class DicoogleWeb {
 
     /**
      * Initializes and starts the Dicoogle Web service.
+     *
      * @param socketAddr the server binding socket address
      * @throws java.lang.Exception
      */

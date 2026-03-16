@@ -24,6 +24,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.servlet.ServletRequest;
+
 /**
  * Provides login routines for users.
  *
@@ -57,7 +59,14 @@ public class Authentication {
         return instance;
     }
 
+    /** Obtain the user object of the user logged in */
+    public User getAuthenticatedUser(ServletRequest request) {
+        return (User) request.getAttribute(AuthenticatedFilter.USER_ATTRIBUTE);
+    }
 
+    /** Obtain the user object of the user associated with
+     * the given session token
+     */
     public User getUsername(String token) {
         String user = tokenUsers.get(token);
         if (user == null)

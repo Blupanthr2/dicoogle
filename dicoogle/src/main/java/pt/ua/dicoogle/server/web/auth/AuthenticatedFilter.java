@@ -16,10 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Dicoogle.  If not, see <http://www.gnu.org/licenses/>.
  */
-/**
- */
 
-package pt.ua.dicoogle.server.web;
+package pt.ua.dicoogle.server.web.auth;
 
 import java.io.IOException;
 import javax.servlet.Filter;
@@ -28,20 +26,59 @@ import javax.servlet.FilterConfig;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import pt.ua.dicoogle.server.users.Role;
 import pt.ua.dicoogle.server.users.User;
-import pt.ua.dicoogle.server.web.auth.Authentication;
 
-/** Servlet filter to ensure that the user is logged in
- * (has a valid session token in `Authorization`).
+/**
+ * Servlet filter to ensure that the user is logged in
+ * (has a valid session token).
+ *
+ * <p>
+ * Authentication tokens are created upon login.
+ * A Dicoogle user can provide an authentication token
+ * through one of these mechanisms:
+ * </p>
+ *
+ * <ul>
+ * <li><code>Authorization</code> header with the token as the value,
+ * optionally prefixed with "Dicoogle " or "Bearer ";
+ * <li>Or a cookie named <code>DICOOGLE_SESSION</code>
+ * with the token as the value.
+ * </ul>
+ *
+ * <p>
+ * Before Dicoogle 3.6.0, only the <code>Authorization</code> header
+ * with the token as the value was supported.
+ * </p>
  */
 public class AuthenticatedFilter implements Filter {
 
+    /**
+     * Name of the filter configuration parameter for
+     * whether the user needs to be admin
+     */
     public static final String NEEDS_ADMIN_PARAM = "needsAdmin";
+    /**
+     * Name of the filter configuration parameter for
+     * whether the user needs to have a specific role
+     */
     public static final String NEEDS_ROLE_PARAM = "needsRole";
+
+    /** Name of the servlet request parameter
+     * containing the authenticated user object,
+     * if the request is successfully authenticated.
+     */
+    public static final String USER_ATTRIBUTE = "dicoogleUser";
+
+    /**
+     * The name of the Dicoogle session cookie,
+     * where the authentication token can be stored.
+     */
+    public static final String DICOOGLE_SESSION_COOKIE_NAME = "DICOOGLE_SESSION";
 
     /** Whether the user needs to be an admin */
     private boolean needsAdmin = false;
@@ -75,7 +112,7 @@ public class AuthenticatedFilter implements Filter {
 
         if (sreq instanceof HttpServletRequest) {
             HttpServletRequest req = (HttpServletRequest) sreq;
-            String token = req.getHeader("Authorization");
+            String token = getTokenFromRequest(req);
 
             // Authorization header must have a Dicoogle session token
             if (token == null) {
@@ -103,9 +140,71 @@ public class AuthenticatedFilter implements Filter {
                 return;
             }
 
-            // OK
+            // OK, inject user attribute and continue
+            sreq.setAttribute(USER_ATTRIBUTE, user);
         }
         fc.doFilter(sreq, sresp);
+    }
+
+    /**
+     * Helper function to retrieve the Dicoogle user authentication token.
+     *
+     * Servlets can call {@link Authentication#getAuthenticatedUser}
+     * to retrieve the authenticated user when this filter is installed as a middleware,
+     * as requests that pass the filter will already have the authenticated user object
+     * injected as a request attribute.
+     * When not using this filter,
+     * prefer using this method over inspecting the request directly,
+     * as it supports more ways in which
+     * the token is sent by the client (see also #223).
+     *
+     * @param req the HTTP request to retrieve the token from
+     * @return the token string, or null if no token is present
+     */
+    public static String getTokenFromRequest(HttpServletRequest req) {
+        // prefer the Authorization header
+        String token = req.getHeader("Authorization");
+        if (token != null) {
+            if (token.startsWith("Dicoogle ") || token.startsWith("dicoogle ")) {
+                token = token.substring("dicoogle ".length());
+            } else if (token.startsWith("Bearer ") || token.startsWith("bearer ")) {
+                token = token.substring("bearer ".length());
+            }
+            if (!token.isEmpty()) {
+                return token;
+            }
+        }
+
+        // if not found, look for the DICOOGLE_SESSION cookie
+        if (req.getCookies() != null) {
+            for (Cookie cookie : req.getCookies()) {
+                if (DICOOGLE_SESSION_COOKIE_NAME.equals(cookie.getName())) {
+                    String cookieValue = cookie.getValue();
+                    if (!cookieValue.isEmpty()) {
+                        return cookieValue;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Helper function to retrieve the Dicoogle user authentication token.
+     *
+     * Prefer using this over inspecting the request directly,
+     * as it supports more ways in which
+     * the token is sent by the client (see also #223).
+     *
+     * @param req the HTTP request to retrieve the token from
+     * @return the token string, or null if no token is present
+     */
+    public static String getTokenFromRequest(ServletRequest req) {
+        if (req instanceof HttpServletRequest) {
+            return getTokenFromRequest((HttpServletRequest) req);
+        }
+        return null;
     }
 
     private static void unauthorized(ServletResponse resp) throws IOException {
@@ -123,6 +222,7 @@ public class AuthenticatedFilter implements Filter {
     }
 
     @Override
-    public void destroy() {}
+    public void destroy() {
+    }
 
 }
