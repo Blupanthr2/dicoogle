@@ -72,6 +72,7 @@ public class LoginServlet extends HttpServlet {
 
         // Add session cookie
         Cookie cookie = new Cookie(AuthenticatedFilter.DICOOGLE_SESSION_COOKIE_NAME, mLoggedIn.getToken());
+        cookie.setHttpOnly(true);
         resp.addCookie(cookie);
 
         // Set response content type
@@ -85,13 +86,7 @@ public class LoginServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 
         // Find authenticated user
-        User user = null;
-        // Fetch token from request,
-        // as this servlet is not filtered by AuthenticatedFilter
-        String token = AuthenticatedFilter.getTokenFromRequest(req);
-        if (token != null) {
-            user = Authentication.getInstance().getUsername(token);
-        }
+        User user = Authentication.getInstance().getAuthenticatedUser(req);
 
         if (user == null) {
             resp.sendError(401);

@@ -114,7 +114,7 @@ public class AuthenticatedFilter implements Filter {
             HttpServletRequest req = (HttpServletRequest) sreq;
             String token = getTokenFromRequest(req);
 
-            // Authorization header must have a Dicoogle session token
+            // A Dicoogle session token must be found in order to continue
             if (token == null) {
                 unauthorized(sresp);
                 return;
@@ -149,12 +149,14 @@ public class AuthenticatedFilter implements Filter {
     /**
      * Helper function to retrieve the Dicoogle user authentication token.
      *
-     * Servlets can call {@link Authentication#getAuthenticatedUser}
-     * to retrieve the authenticated user when this filter is installed as a middleware,
-     * as requests that pass the filter will already have the authenticated user object
-     * injected as a request attribute.
-     * When not using this filter,
-     * prefer using this method over inspecting the request directly,
+     * Note that servlets can call {@link Authentication#getAuthenticatedUser}
+     * to retrieve the authenticated user.
+     * This filter will ensure that the user object
+     * is injected as an attribute in the servlet request in advance,
+     * so that subsequent calls will not repeat the process.
+     *
+     * This method is only necessary if retrieving the token itself is important.
+     * In such cases, prefer using this method over inspecting the request directly,
      * as it supports more ways in which
      * the token is sent by the client (see also #223).
      *

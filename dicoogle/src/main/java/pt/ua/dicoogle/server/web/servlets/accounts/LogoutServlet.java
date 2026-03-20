@@ -52,7 +52,7 @@ public class LogoutServlet extends HttpServlet {
         }
         // delete existing session cookie
         Cookie cookie = new Cookie(AuthenticatedFilter.DICOOGLE_SESSION_COOKIE_NAME, "");
-        cookie.setPath("/");
+        cookie.setHttpOnly(true);
         cookie.setMaxAge(0);
         resp.addCookie(cookie);
         ResponseUtil.simpleResponse(resp, "success", logout);
