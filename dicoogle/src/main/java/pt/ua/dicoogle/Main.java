@@ -41,6 +41,12 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.Map;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.Files;
 
 /**
  * Main class for Dicoogle
@@ -51,6 +57,8 @@ import java.net.UnknownHostException;
  */
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
+    private static Process fsServerProcess = null;
+
 
     /**
      * Starts the graphical user interface for Dicoogle
@@ -87,14 +95,17 @@ public class Main {
                 System.out.println();
                 System.out.println(" -s : Start the server");
                 System.out.println(" -w : Start the server and load web application in default browser (default)");
+                System.out.println(" --fs[=<file>] : Enable filesystem manager (optional config file path)");
             } else {
                 System.out.println("Wrong arguments!");
                 System.out.println();
                 System.out.println("Dicoogle PACS");
                 System.out.println("-s : Start the server");
                 System.out.println("-w : Start the server and load web application in default browser (default)");
+                System.out.println("--fs[=<file>] : Enable filesystem manager (optional config file path)");
             }
         }
+        startFileSystemManager(args);
         // Register System Exceptions Hook
         ExceptionHandler.registerExceptionHandler();
     }
@@ -201,4 +212,154 @@ public class Main {
             }
         }));
     }
+
+    private static void startFileSystemManager(String[] args) {
+        boolean enabled = false;
+        String configPath = null;
+
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+
+            if ("--fs".equals(arg) || "--filesystem".equals(arg) || "-fs".equals(arg)) {
+                enabled = true;
+                if (i + 1 < args.length && !args[i + 1].startsWith("-")) {
+                    configPath = args[++i];
+                }
+                continue;
+            }
+
+            if (arg.startsWith("--fs=") || arg.startsWith("--filesystem=") || arg.startsWith("-fs=")) {
+                enabled = true;
+                configPath = arg.substring(arg.indexOf('=') + 1).trim();
+                continue;
+            }
+        }
+
+        if (!enabled) {
+            logger.info("Filesystem Manager disabled. Use --fs to enable it.");
+            return;
+        }
+
+        try {
+            String os = System.getProperty("os.name").toLowerCase();
+            String binaryName;
+            String extension = "";
+
+            if (os.contains("win")) {
+                binaryName = "fs-server-bundle-win.exe";
+                extension = ".exe";
+            } else if (os.contains("mac")) {
+                binaryName = "fs-server-bundle-macos";
+            } else {
+                binaryName = "fs-server-bundle-linux";
+            }
+
+            // 1. Read binary from the JAR
+            InputStream in = Main.class.getResourceAsStream("/dicoogle-next/webapp/dist/bin/" + binaryName);
+            if (in == null) {
+                logger.error("Could not find filesystem server binary in JAR: {}", binaryName);
+                return;
+            }
+
+            File tempBin = File.createTempFile("fs-server-", extension);
+            tempBin.deleteOnExit(); // Ensure it cleans up when Java exits
+            Files.copy(in, tempBin.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            tempBin.setExecutable(true);
+
+            // 3. Start the process
+            logger.info("Starting Next Filesystem Manager from {}", tempBin.getAbsolutePath());
+            ProcessBuilder pb = new ProcessBuilder(tempBin.getAbsolutePath());
+
+            // Pass the port environment variable
+            Map<String, String> env = pb.environment();
+            env.put("FILESYSTEM_SERVER_PORT", "3333");
+            env.put("NODE_ENV", "production");
+            applyFsConfigToEnvironment(env, configPath);
+
+            // Inherit IO so you can see console.log outputs from the JS file in your Java console!
+            pb.inheritIO();
+
+            fsServerProcess = pb.start();
+
+            // 4. Add a shutdown hook to kill the Node.js process when Dicoogle is closed
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                if (fsServerProcess != null && fsServerProcess.isAlive()) {
+                    logger.info("Stopping Filesystem Manager Server...");
+                    fsServerProcess.destroy();
+                }
+            }));
+
+        } catch (Exception e) {
+            logger.error("Failed to start embedded FileSystem Manager", e);
+        }
+    }
+
+    private static void applyFsConfigToEnvironment(Map<String, String> env, String fsConfigPath) {
+        if (fsConfigPath == null || fsConfigPath.trim().isEmpty()) {
+            return;
+        }
+
+        File configFile = new File(fsConfigPath.trim());
+
+        if (!configFile.exists() || !configFile.isFile()) {
+            logger.warn("Filesystem config file not found: {}", configFile.getAbsolutePath());
+            return;
+        }
+
+        String fileName = configFile.getName().toLowerCase();
+        if (fileName.endsWith(".json") || fileName.contains(".json.") || looksLikeJsonConfig(configFile)) {
+            env.put("FILESYSTEM_CONFIG_PATH", configFile.getAbsolutePath());
+            logger.info("Using filesystem JSON config: {}", configFile.getAbsolutePath());
+            return;
+        }
+
+        String allowedRoots = readAllowedRootsList(configFile);
+        if (!allowedRoots.isEmpty()) {
+            env.put("FILESYSTEM_ALLOWED_ROOTS", allowedRoots);
+            logger.info("Using filesystem roots list from {}", configFile.getAbsolutePath());
+        } else {
+            logger.warn("Filesystem roots file is empty: {}", configFile.getAbsolutePath());
+        }
+    }
+
+    private static String readAllowedRootsList(File file) {
+        StringBuilder roots = new StringBuilder();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String value = line.trim();
+                if (value.isEmpty()) {
+                    continue;
+                }
+
+                if (roots.length() > 0) {
+                    roots.append(';');
+                }
+                roots.append(value);
+            }
+        } catch (IOException ex) {
+            logger.warn("Failed to read filesystem roots file {}: {}", file.getAbsolutePath(), ex.getMessage());
+            return "";
+        }
+
+        return roots.toString();
+    }
+
+    private static boolean looksLikeJsonConfig(File file) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String value = line.trim();
+                if (value.isEmpty()) {
+                    continue;
+                }
+                return value.startsWith("{") || value.startsWith("[");
+            }
+        } catch (IOException ex) {
+            logger.warn("Failed to inspect filesystem config file {}: {}", file.getAbsolutePath(), ex.getMessage());
+        }
+        return false;
+    }
 }
+

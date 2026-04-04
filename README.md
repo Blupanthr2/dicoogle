@@ -85,8 +85,52 @@ Brief Documentation
 
     - Using dicoogle-next interface
 
-      Dicoogle now features **dicoogle-next**, a web application that runs alongside the current gebapp. This interface offers a refreshed design and updated workflows.
+      Dicoogle now features **dicoogle-next**, a web application that runs alongside the current webapp. This interface offers a refreshed design and updated workflows.
       You can access this interface by navigating to the `/experimental` path on your server (e.g., `http://localhost:8080/experimental`).
+
+      The integrated Filesystem Manager is optional and disabled by default. Use `--fs` (or `--filesystem`, `-fs`) to enable it.
+      You may optionally provide a config file path in either of these forms:
+
+      - `-fs=<file>`
+
+      Examples:
+
+      ```bash
+      java -jar dicoogle.jar -fs # starts the filesystem manager with default /home and C: allowed roots
+      java -jar dicoogle.jar -fs=/opt/dicoogle/paths.txt 
+      java -jar dicoogle.jar -fs=/opt/dicoogle/filesystem.config.json
+      java -jar dicoogle.jar -fs=/opt/dicoogle/filesystem.config.json
+      ```
+
+      The config file can be either JSON (recommended) or a plain text path list.
+
+      JSON example (`filesystem.config.json`):
+
+      ```json
+      {
+        "allowedRoots": [
+          "/home",
+          "~/Documents",
+          "~/Downloads",
+          "C:\\",
+          "D:\\"
+        ]
+      }
+      ```
+
+      Plain text example (`paths.txt`, one path per line):
+
+      ```text
+      /home
+      ~/Documents
+      ~/Downloads
+      /mnt/dicom
+      ```
+
+      Notes:
+      - JSON files are passed to the filesystem server through `FILESYSTEM_CONFIG_PATH`.
+      - Plain text files are converted into `FILESYSTEM_ALLOWED_ROOTS`.
+      - Non-existent paths are ignored and logged by the filesystem server.
 
 #### Using the Web Services
 
@@ -218,4 +262,3 @@ Project leaders
 
 * Carlos Costa and José Luis Oliveira (UA.PT Bioinformatics, scientific advisors)
 * Luís Bastião (BMD software - development)
-
